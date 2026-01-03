@@ -26,11 +26,9 @@ class OrderConfirmationMail extends Mailable
 
     public function content(): Content
     {
+        // ASSUREZ-VOUS QUE CE CHEMIN EST CORRECT
         return new Content(
-            view: 'emails.orders.confirmation',
-            with: [
-                'order' => $this->order,
-            ],
+            view: 'emails.orders.confirmation', // ← Vérifiez ce chemin
         );
     }
 

@@ -28,17 +28,21 @@ class SendOrderConfirmationEmail implements ShouldQueue
     public function handle(): void
     {
         try {
-            // Testez d'abord avec un email simple
-            Mail::raw('Order Confirmation Test', function($message) {
-                $message->to($this->order->customer_email)
-                        ->subject('Order Confirmation - ' . $this->order->order_number);
-            });
+            // REMPLACEZ CE CODE :
+            // Mail::raw('Order Confirmation Test', function($message) {
+            //     $message->to($this->order->customer_email)
+            //             ->subject('Order Confirmation - ' . $this->order->order_number);
+            // });
             
-            Log::info('Email sent to: ' . $this->order->customer_email);
+            // PAR CE CODE QUI UTILISE LE TEMPLATE HTML :
+            Mail::to($this->order->customer_email)
+                ->send(new OrderConfirmationMail($this->order));
+            
+            Log::info('📧 Email HTML sent to: ' . $this->order->customer_email);
             
         } catch (\Exception $e) {
-            Log::error('Email failed: ' . $e->getMessage());
-            throw $e; // Relancer l'exception pour les retries
+            Log::error('❌ Email failed: ' . $e->getMessage());
+            throw $e;
         }
     }
 
