@@ -5,9 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Mail\OrderConfirmationMail;
 use Illuminate\Http\Request;
+use App\Jobs\SendOrderConfirmationEmail;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log; // Add this import
-use Illuminate\Support\Facades\DB;   // Optional but good to have
+use Illuminate\Support\Facades\Log; 
+use Illuminate\Support\Facades\DB;   
 
 class OrderController extends Controller
 {
@@ -44,7 +45,7 @@ class OrderController extends Controller
         $sortOrder = $request->input('sort_order', 'desc');
         $query->orderBy($sortBy, $sortOrder);
         
-        // This is correct for Laravel 10
+        
         $orders = $query->paginate(15)->withQueryString();
         
         $statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
@@ -58,26 +59,35 @@ class OrderController extends Controller
         return view('orders.show', compact('order'));
     }
     
-    public function confirm(Order $order)
+     public function confirm(Order $order)
     {
-        // Check if order is already confirmed
+        // Vérifier si la commande est déjà confirmée
         if ($order->status === 'confirmed') {
             return back()->with('error', 'Order is already confirmed.');
         }
         
-        // Update order status
+        // Vérifier si la commande peut être confirmée
+        if (!in_array($order->status, ['pending', 'processing'])) {
+            return back()->with('error', 'Only pending or processing orders can be confirmed.');
+        }
+        
+        // Mettre à jour le statut de la commande
         $order->update(['status' => 'confirmed']);
         
-        // Send confirmation email
         try {
-            Mail::to($order->customer_email)->send(new OrderConfirmationMail($order));
+            // Dispatch le job dans la queue
+            SendOrderConfirmationEmail::dispatch($order)
+                // ->onQueue('emails') // Optionnel : spécifier une queue dédiée
+                ->delay(now()->addSeconds(5)); // Optionnel : délai avant envoi
             
-            return back()->with('success', 'Order confirmed successfully and confirmation email sent.');
+            // Message de succès
+            return back()->with('success', 'Order confirmed successfully! Confirmation email is being sent.');
+            
         } catch (\Exception $e) {
-            // Log the error but still confirm the order
-            Log::error('Failed to send confirmation email: ' . $e->getMessage());
+            // Log l'erreur mais la commande reste confirmée
+            Log::error('Failed to dispatch confirmation email job: ' . $e->getMessage());
             
-            return back()->with('warning', 'Order confirmed but failed to send email.');
+            return back()->with('warning', 'Order confirmed but email system encountered an issue.');
         }
     }
 }
